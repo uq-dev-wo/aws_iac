@@ -1,0 +1,125 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Resources:
+  Ec2StudyJenkinsSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: sg_jenkins
+      GroupDescription: sg for jenkins
+      SecurityGroupIngress: 
+        - CidrIp: 0.0.0.0/0
+        #  CidrIpv6: String
+          Description: InComming ssh from Internet
+          IpProtocol: tcp
+        #  SourcePrefixListId: String
+        #  SourceSecurityGroupId: String
+        #  SourceSecurityGroupName: String
+        #  SourceSecurityGroupOwnerId: String
+          FromPort: 22
+          ToPort: 22
+        - CidrIp: 0.0.0.0/0
+          Description: InComming 8080 from Internet
+          IpProtocol: tcp
+          FromPort: 8080
+          ToPort: 8080
+      VpcId: !ImportValue test-vpc
+  Ec2StudyJenkins:
+    Type: AWS::EC2::Instance
+    Properties:
+      # AdditionalInfo: String
+      # Affinity: String
+      # AvailabilityZone: ap
+      BlockDeviceMappings: # ストレージの設定
+        - DeviceName: /dev/xvda # デバイス名
+          Ebs:
+            VolumeType: gp3 # ボリュームタイプ
+            DeleteOnTermination: true # インスタンス終了時に削除するのか
+            VolumeSize: 8 # ディスクサイズ（GiB）
+      # CpuOptions: 
+      #   CpuOptions
+      # CreditSpecification: 
+      #   CreditSpecification
+      # DisableApiTermination: Boolean
+      # EbsOptimized: Boolean
+      # ElasticGpuSpecifications: 
+      #   - ElasticGpuSpecification
+      # ElasticInferenceAccelerators: 
+      #   - ElasticInferenceAccelerator
+      # EnclaveOptions: 
+      #   EnclaveOptions
+      # HibernationOptions: 
+      #   HibernationOptions
+      # HostId: String
+      # HostResourceGroupArn: String
+      # IamInstanceProfile: String
+      ImageId: ami-0b9a26d37416470d2 # Amazon Linux 2023 AMI 2023.4.20240528.0 x86_64 HVM kernel-6.1
+      # InstanceInitiatedShutdownBehavior: String
+      InstanceType: t2.micro
+      # Ipv6AddressCount: Integer
+      # Ipv6Addresses: 
+      #  - InstanceIpv6Address
+      # KernelId: String
+      KeyName: ec2-key
+      # LaunchTemplate: 
+      #   LaunchTemplateSpecification
+      # LicenseSpecifications: 
+      #   - LicenseSpecification
+      # Monitoring: Boolean
+      NetworkInterfaces: 
+        - AssociatePublicIpAddress: true
+          DeviceIndex: '0'
+          GroupSet: 
+            - !Ref Ec2StudyJenkinsSecurityGroup
+          SubnetId: !ImportValue test-vpc-public-subnet2
+      # PlacementGroupName: String
+      # PrivateDnsNameOptions: 
+      #  PrivateDnsNameOptions
+      # PrivateIpAddress: String
+      # PropagateTagsToVolumeOnCreation: Boolean
+      # RamdiskId: String
+      # SecurityGroupIds: 
+      #  - sg-01517ff08212ce418 # NetworkInterfacesで指定されたものをそのまま使う場合は不要
+      # SecurityGroups: 
+      #  - String
+      # SourceDestCheck: Boolean
+      # SsmAssociations: 
+      #  - SsmAssociation
+      # SubnetId: String # 
+      Tags: 
+        - Key: subsystem
+          Value: cfn-test
+      # Tenancy: String
+      UserData: !Base64
+        'Fn::Join':
+          - ''
+          - - |
+            #!/bin/bash -x
+            - |
+            - sudo yum update -y
+            - sudo yum install -y java-17-amazon-corretto.x86_64
+            - sudo wget -O /etc/yum.repos.d/jenkins.repo https://pkg.jenkins.io/redhat-stable/jenkins.repo
+            - sudo rpm --import https://pkg.jenkins.io/redhat-stable/jenkins.io-2023.key
+            - sudo yum install -y jenkins
+            - sudo systemctl start jenkins
+            - |+
+            
+            - |
+            - '/opt/aws/bin/cfn-init -v '
+            - '         --stack '
+            - !Ref 'AWS::StackName'
+            - '         --resource Ec2StudyJenkins '
+            - '         --region '
+            - !Ref 'AWS::Region'
+            - |+
+
+            - |
+              # Signal the status from cfn-init
+            - '/opt/aws/bin/cfn-signal -e $? '
+            - '         --stack '
+            - !Ref 'AWS::StackName'
+            - '         --resource Ec2StudyJenkins '
+            - '         --region '
+            - !Ref 'AWS::Region'
+            - |+
+      # Volumes: 
+      #   - Volume
+
